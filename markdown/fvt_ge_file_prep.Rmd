@@ -27,41 +27,11 @@ financial_aid <- utHelpR::get_data_from_sql_file('financial_aid.sql')
 charges_assessed <- utHelpR::get_data_from_sql_file('charges_assessed.sql')
 ```
 
-## FVT-GE File Layout
+## FVT-GE File 
 ```{r}
 fvt_ge_file_layout_df <- fvt_ge_cohort_2223_df %>% 
   janitor::clean_names() %>% 
   select(record_type, institution_code_opeid, award_year, student_social_security_number, student_first_name, student_middle_name, student_last_name, student_date_of_birth, cip_code, credential_level, published_length_of_program, published_length_of_program_measurement, weeks_in_title_iv_academic_year, comprehensive_transition_and_postsecondary_ctp_program_indicator, approved_prison_education_program_indicator, date_student_completed_or_withdrew_from_program, program_enrollment_begin_date, students_enrollment_status_as_of_the_1st_day_of_enrollment_in_the_program, program_attendance_status_during_award_year, program_attendance_status_date_during_award_year, residency_tuition_status_by_state_or_district, invalid_flag, ge_program_flag, college_student_id) 
-```
-
-## Final Data Frame Preparation
-```{r}
-final_data_frame <- fvt_ge_file_layout_df %>% 
-  mutate(
-    record_type = as.character(record_type),
-    institution_code_opeid = as.character(institution_code_opeid),
-    award_year = as.character(award_year),
-    student_social_security_number = as.character(student_social_security_number),
-    student_first_name = as.character(student_first_name),
-    student_middle_name = as.character(student_middle_name),
-    student_last_name = as.character(student_last_name),
-    student_date_of_birth = as.Date(student_date_of_birth, format="YYYYMMDD"),
-    cip_code = as.character(cip_code),
-    credential_level = as.character(credential_level),
-    published_length_of_program = as.numeric(published_length_of_program),
-    published_length_of_program_measurement = as.character(published_length_of_program_measurement),
-    weeks_in_title_iv_academic_year = as.numeric(weeks_in_title_iv_academic_year),
-    comprehensive_transition_and_postsecondary_ctp_program_indicator = as.logical(comprehensive_transition_and_postsecondary_ctp_program_indicator),
-    approved_prison_education_program_indicator = as.logical(approved_prison_education_program_indicator),
-    date_student_completed_or_withdrew_from_program = as.Date(date_student_completed_or_withdrew_from_program, format="YYYYMMDD"),
-    program_enrollment_begin_date = as.Date(program_enrollment_begin_date, format="YYYYMMDD"),
-    students_enrollment_status_as_of_the_1st_day_of_enrollment_in_the_program = as.character(students_enrollment_status_as_of_the_1st_day_of_enrollment_in_the_program),
-    program_attendance_status_during_award_year = as.character(program_attendance_status_during_award_year),
-    program_attendance_status_date_during_award_year = as.Date(program_attendance_status_date_during_award_year, format="YYYYMMDD"),
-    residency_tuition_status_by_state_or_district = as.character(residency_tuition_status_by_state_or_district),
-    invalid_flag = as.logical(invalid_flag),
-    ge_program_flag = as.character(ge_program_flag)
-  ) 
 ```
 
 
@@ -240,10 +210,7 @@ final_AA_file_df <- fvt_ge_file_layout_df %>%
   left_join(student_df, by = "pidm")
 ```
 
-```{r}
-write_csv(final_TA_file_df, "/Volumes/Share/IE/Secure/FVT-GE/fvt_ge_ta_file.csv")
-write_csv(final_AA_file_df, "/Volumes/Share/IE/Secure/FVT-GE/fvt_ge_aa_file.csv")
-```
+
 
 
 
