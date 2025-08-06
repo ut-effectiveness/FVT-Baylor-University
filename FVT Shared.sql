@@ -204,7 +204,7 @@ SELECT DISTINCT getStuRec.NSCRecordType
          END TotalPrivateLoans
        , CASE
            WHEN getStuRec.NSCRecordType = 'TA' AND ChargesAssessed1.Amount > 0
-             THEN NVL(ChargesAssessed1.Amount, 0)
+   ther          THEN NVL(ChargesAssessed1.Amount, 0)
            WHEN getStuRec.NSCRecordType = 'TA' AND ChargesAssessed1.Amount <= 0
              THEN 0
            ELSE 0
@@ -379,7 +379,7 @@ LEFT JOIN
            , PeriodBudget.ProgramCode
            , SUM(PeriodBudget.Amount), 0 Amount
     FROM PeriodBudget
-    WHERE PeriodBudget.Component IN ('Z5BK', 'Z6SP')--**Replace with your Component Codes (RBRAPBC_PBCP_CODE) for books and supplies.
+    WHERE PeriodBudget.Component IN ('B+S')--**Replace with your Component Codes (RBRAPBC_PBCP_CODE) for books and supplies.
     GROUP BY PeriodBudget.NSCRecordType
            , PeriodBudget.NSCAidYear
            , PeriodBudget.NSCPidm
@@ -601,7 +601,7 @@ LEFT JOIN
            , PeriodBudget.ProgramCode
            , SUM(PeriodBudget.Amount) Amount
     FROM PeriodBudget
-    WHERE PeriodBudget.Component IN ('Z5BK', 'Z6SP') --**Replace with your Component Codes (RBRAPBC_PBCP_CODE) for books and supplies.
+    WHERE PeriodBudget.Component IN ('B+S') --**Replace with your Component Codes (RBRAPBC_PBCP_CODE) for books and supplies.
           AND PeriodBudget.AidYear = SUBSTR(PeriodBudget.NSCAidYear, 3, 2) || SUBSTR(PeriodBudget.NSCAidYear, 7, 2)
     GROUP BY PeriodBudget.NSCRecordType
            , PeriodBudget.NSCAidYear
