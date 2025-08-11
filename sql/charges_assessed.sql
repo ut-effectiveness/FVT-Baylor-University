@@ -8,5 +8,4 @@ SELECT tbraccd_pidm Pidm
        , tbraccd_term_code TermId
 FROM banner.tbraccd
 LEFT JOIN banner.tbbdetc
-     ON tbbdetc_detail_code = tbraccd.tbraccd_detail_code
-WHERE tbraccd_term_code > '202230';
+     ON tbbdetc_detail_code = tbraccd.tbraccd_detail_code;
