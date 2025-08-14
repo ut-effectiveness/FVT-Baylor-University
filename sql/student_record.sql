@@ -2,6 +2,7 @@
 
 SELECT a.student_id StudentID
        , a.sis_system_id Pidm
+       , a.primary_major_effective_term_id EffTermCode
        , b.sgbstdn_levl_code LevelCode
        , b.sgbstdn_majr_code_1 MajorCode
        , b.sgbstdn_degc_code_1 DegreeCode
