@@ -1,0 +1,220 @@
+---
+title: "file_prep"
+author: "Candi Pierce"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(utHelpR)
+library(readxl)
+library(readr)
+```
+
+```{r, warning=FALSE, message=FALSE}
+fvt_ge_cohort_2324_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/2324Cohort_003671_AY20232024T.csv")
+student_list <- utHelpR::get_data_from_sql_file('student_list.sql')
+student_cip <- utHelpR::get_data_from_sql_file('student_cip.sql')
+student_record <- utHelpR::get_data_from_sql_file('student_record.sql')
+period_budget <- utHelpR::get_data_from_sql_file('period_budget.sql')
+aid_year_budget <- utHelpR::get_data_from_sql_file('aid_year_budget.sql')
+financial_aid <- utHelpR::get_data_from_sql_file('financial_aid.sql')
+charges_assessed <- utHelpR::get_data_from_sql_file('charges_assessed.sql')
+```
+
+## FVT-GE File 
+```{r}
+fvt_ge_file_layout_df <- fvt_ge_cohort_2324_df %>% 
+  janitor::clean_names() %>% 
+  select(record_type, institution_code_opeid, award_year, student_social_security_number, student_first_name, student_middle_name, student_last_name, student_date_of_birth, cip_code, credential_level, published_length_of_program, published_length_of_program_measurement, weeks_in_title_iv_academic_year, comprehensive_transition_and_postsecondary_ctp_program_indicator, approved_prison_education_program_indicator, date_student_completed_or_withdrew_from_program, program_enrollment_begin_date, students_enrollment_status_as_of_the_1st_day_of_enrollment_in_the_program, program_attendance_status_during_award_year, program_attendance_status_date_during_award_year, residency_tuition_status_by_state_or_district, invalid_flag, ge_program_flag, college_student_id) 
+```
+
+
+## TA - Private Loans
+Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program
+```{r}
+total_student_loan_df <- charges_assessed %>% 
+  filter(catcode == 'F1') %>% # Category code for Financial Aid Loans
+  group_by(pidm) %>% 
+  summarise(total_loans_amount = sum(amount, na.rm = TRUE), .groups = "drop")
+```
+
+
+## TA - Institutional Debt
+```{r}
+total_institutional_debt_df <- charges_assessed %>% 
+  filter(typeind == "C") %>% # Charge type indicator
+  group_by(pidm) %>%
+  summarise(total_debt_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_debt_amount > 0)
+```
+
+
+## TA - Total Amount of Tuition & Fees  
+```{r}
+total_tuition_fees_df <- charges_assessed %>% 
+  filter(catcode %in% c("TUI","TU1","TUD","TUG","TUN","FE1","FE2","FEE")) %>% # Category codes for Tuition and Fees
+  group_by(pidm) %>% 
+  summarise(total_tuition_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_tuition_amount > 0)
+```
+
+
+## TA - Total Amount of Allowance for Books and Supplies
+```{r}
+total_books_supplies_df <- aid_year_budget %>% 
+  filter(component == "B+S") %>% # Allowance for Books and Supplies
+  group_by(pidm) %>% 
+  summarise(total_books_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_books_amount > 0)
+```
+
+
+## TA - Total Amount of Grants & Scholarships Received
+```{r}
+total_grants_scholarships_df <- charges_assessed %>% 
+  filter(catcode %in% c("FA","FA1","FAN","FAW","FSW","FWN","FWR")) %>% # Category codes for Grants and Scholarships
+  group_by(pidm) %>% 
+  summarise(total_grants_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_grants_amount > 0)
+```
+
+
+## AA - Annual Cost of Attendance 
+```{r}
+annual_cost_of_attendance_df <- period_budget %>% 
+  filter(aidyear == "2324") %>% # Filter for the specific award year
+  group_by(pidm) %>% 
+  summarise(total_coa_amount = sum(periodamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_coa_amount > 0)
+```
+
+
+## AA - Yearly Amount of Tuition and Fees Assessed for Award Year
+```{r}
+yearly_tuition_fees_assessed_df <- charges_assessed %>% 
+  filter(termid %in% c("202340","202420","202430")) %>% # Terms in aid year 2022-2023
+  filter(catcode %in% c("TUI","TU1","TUD","TUG","TUN","FE1","FE2","FEE")) %>% # Category codes for Tuition and Fees
+  group_by(pidm) %>% 
+  summarise(total_tuition_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_tuition_amount > 0)
+```
+
+
+
+## AA - Yearly Amount of Allowance for Books and Supplies
+```{r}
+yearly_books_supplies_df <- aid_year_budget %>% 
+  filter(aidyear == "2324") %>% # Filter for the specific award year
+  filter(component == "B+S") %>%  # Filter on Allowance for Books and Supplies
+  group_by(pidm) %>% 
+  summarise(total_books_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_books_amount > 0)
+```
+
+
+## AA - Yearly Amount of Allowance for Housing and Food
+```{r}
+yearly_housing_food_df <- aid_year_budget %>% 
+  filter(aidyear == "2324") %>% # Filter for the specific award year
+  filter(component == "R+B") %>%  # Filter on Allowance for Housing & Food
+  group_by(pidm) %>% 
+  summarise(total_housing_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_housing_amount > 0)
+```
+
+
+
+## AA - Yearly Amount of Institutional Grants & Scholarships Received
+```{r}
+yearly_institutional_grants_df <- charges_assessed %>% 
+  filter(termid %in% c("202340","202420","202430")) %>% 
+  # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
+  filter(detailcode %in% c("8003","8008","8012","8013","8014","8015","8016",
+                           "8017","8020","8021","8022","8023","8024","8025",
+                           "8026","8036","8037","8058","8061","8118","8119",
+                           "8220","8381","8405","8429","8537","8559")) %>% 
+  group_by(pidm) %>% 
+  summarise(total_inst_grants_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_inst_grants_amount > 0)
+```
+
+
+## AA - Yearly Amount of Other, State, Tribal, or Private Grants Received
+```{r}
+yearly_private_grants_df <- charges_assessed %>% 
+  filter(termid %in% c("202340","202420","202430")) %>% 
+  # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
+  filter(detailcode %in% c("7025","7554","8028","8546","8828","UHEA",
+                           "8802","8265","UCOM","ACG","ACG1","ACG2","SGN2", 
+                           "SGN3","SGNT")) %>% 
+  group_by(pidm) %>% 
+  summarise(total_prv_grants_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_prv_grants_amount > 0)
+```
+
+
+## AA - Private Loans
+Yearly Amount Student Received in Private Education Loans During Student's Enrollment in the Year
+```{r}
+yearly_student_loan_df <- charges_assessed %>% 
+  filter(termid %in% c("202340","202420","202430"))  %>% # Filter for the specific terms
+  filter(catcode == 'F1') %>% # Category code for Financial Aid Loans
+  group_by(pidm) %>% 
+  summarise(total_loans_amount = sum(amount, na.rm = TRUE), .groups = "drop")
+```
+
+
+## Student file population with term and major
+```{r, warning= FALSE}
+student_df <- fvt_ge_cohort_2324_df %>% 
+  select(studentid = `College Student ID`) %>% 
+  left_join(student_list, join_by(studentid)) %>% 
+  left_join(student_record, join_by(studentid)) %>% 
+  select(! pidm.x) %>% 
+  rename(pidm = pidm.y) %>% 
+  select(! termcode)
+
+student_df <- unique(student_df) 
+```
+
+```{r}
+final_TA_file_df <- fvt_ge_file_layout_df %>% 
+  filter(record_type == "TA") %>%
+  left_join(student_df, join_by(college_student_id == studentid, cip_code == stvmajr_cipc_code)) %>%
+  ## Check on the cip codes that don't match what is in the student record.
+  left_join(total_student_loan_df, by = "pidm") %>% 
+  left_join(total_institutional_debt_df, by = "pidm") %>% 
+  left_join(total_tuition_fees_df, by = "pidm") %>% 
+  left_join(total_books_supplies_df, by = "pidm") %>% 
+  left_join(total_grants_scholarships_df, by = "pidm") 
+```
+
+```{r}
+final_AA_file_df <- fvt_ge_file_layout_df %>% 
+  filter(record_type == "AA") %>%
+  left_join(student_df, join_by(college_student_id == studentid, cip_code == stvmajr_cipc_code)) %>%
+  ## Check on the cip codes that don't match what is in the student record.
+  left_join(annual_cost_of_attendance_df, by = "pidm") %>% 
+  left_join(yearly_tuition_fees_assessed_df, by = "pidm") %>% 
+  left_join(yearly_books_supplies_df, by = "pidm") %>% 
+  left_join(yearly_housing_food_df, by = "pidm") %>% 
+  left_join(yearly_institutional_grants_df, by = "pidm") %>% 
+  left_join(yearly_private_grants_df, by = "pidm") %>% 
+  left_join(yearly_student_loan_df, by = "pidm") %>%
+  left_join(student_df, by = "pidm")
+```
+
+
+
+
+
+
+
+
+
