@@ -17,18 +17,21 @@ library(readxl)
 library(readr)
 library(stringr)
 ```
+##### To Do Update file path with new file
+
 
 Reads the FVT-GE cohort CSV file and retrieves multiple datasets from SQL files, including student details, CIP codes, financial aid, and budget data.
 ```{r, warning=FALSE, message=FALSE}
-fvt_ge_cohort_2324_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/new files/2324Cohort_003671_AY20232024T.csv")
+fvt_ge_cohort_2425_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/new files/2324Cohort_003671_AY20232024T.csv")
 student_cip <- utHelpR::get_data_from_sql_file('student_cip.sql')
 student_record <- utHelpR::get_data_from_sql_file('student_record.sql')
 period_budget <- utHelpR::get_data_from_sql_file('period_budget.sql')
 aid_year_budget <- utHelpR::get_data_from_sql_file('aid_year_budget.sql')
 financial_aid <- utHelpR::get_data_from_sql_file('financial_aid.sql')
 charges_assessed <- utHelpR::get_data_from_sql_file('charges_assessed.sql')
+charges_assessed_22425 <- utHelpR::get_data_from_sql_file('2425_charges_assessed.sql')
 term_aid_year <- utHelpR::get_data_from_sql_file('term_to_aid_year.sql')
-residency <- utHelpR::get_data_from_sql_file('residency_code.sql')
+residency <- utHelpR::get_data_from_sql_file('residency_code2425.sql')
 ```
 
 Joins student records with CIP codes and removes unnecessary columns to prepare a dataset linking students to their academic programs.
@@ -160,7 +163,7 @@ cip_student_file_df <- cip_record_df %>%
 
 This code merges the FVT-GE cohort data with financial and academic metrics for each TA student, calculates totals for loans, debt, tuition, books, and grants, and flags records as invalid if all financial amounts are zero. It also ensures that key fields are numeric and filled with default values where missing, preparing the final dataset for reporting or submission.
 ```{r}
-final_TA_file_df <- fvt_ge_cohort_2324_df %>% 
+final_TA_file_df <- fvt_ge_cohort_2425_df %>% 
   filter(`Record Type` == "TA") %>%
   left_join(cip_student_file_df, by = c("College Student ID" = "studentid", "CIP Code" = "cipcode")) %>% 
   mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` =
@@ -230,7 +233,7 @@ mutate(
 ## AA - Annual Cost of Attendance 
 ```{r}
 annual_cost_of_attendance_df <- period_budget %>% 
-  filter(aidyear == "2324") %>% # Filter for the specific award year
+  filter(aidyear == "2425") %>% # Filter for the specific award year
   group_by(pidm) %>% 
   summarise(total_coa_amount = sum(periodamount, na.rm = TRUE), .groups = "drop") %>% 
   filter(total_coa_amount > 0)
@@ -239,8 +242,7 @@ annual_cost_of_attendance_df <- period_budget %>%
 
 ## AA - Yearly Amount of Tuition and Fees Assessed for Award Year
 ```{r}
-yearly_tuition_fees_assessed_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430")) %>% # Terms in aid year 2022-2023
+yearly_tuition_fees_assessed_df <- charges_assessed_2425 %>% 
   filter(catcode %in% c("TUI","TU1","TUD","TUG","TUN","FE1","FE2","FEE")) %>% # Category codes for Tuition and Fees
   group_by(pidm) %>% 
   summarise(yearly_tuition_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
@@ -252,7 +254,7 @@ yearly_tuition_fees_assessed_df <- charges_assessed %>%
 ## AA - Yearly Amount of Allowance for Books and Supplies
 ```{r}
 yearly_books_supplies_df <- aid_year_budget %>% 
-  filter(aidyear == "2324") %>% # Filter for the specific award year
+  filter(aidyear == "2425") %>% # Filter for the specific award year
   filter(component == "B+S") %>%  # Filter on Allowance for Books and Supplies
   group_by(pidm) %>% 
   summarise(yearly_books_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
@@ -263,7 +265,7 @@ yearly_books_supplies_df <- aid_year_budget %>%
 ## AA - Yearly Amount of Allowance for Housing and Food
 ```{r}
 yearly_housing_food_df <- aid_year_budget %>% 
-  filter(aidyear == "2324") %>% # Filter for the specific award year
+  filter(aidyear == "2425") %>% # Filter for the specific award year
   filter(component == "R+B") %>%  # Filter on Allowance for Housing & Food
   group_by(pidm) %>% 
   summarise(yearly_housing_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
@@ -274,8 +276,7 @@ yearly_housing_food_df <- aid_year_budget %>%
 
 ## AA - Yearly Amount of Institutional Grants & Scholarships Received
 ```{r}
-yearly_institutional_grants_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430")) %>% 
+yearly_institutional_grants_df <- charges_assessed_2425 %>% 
   # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
   filter(detailcode %in% c("8003","8008","8012","8013","8014","8015","8016",
                            "8017","8020","8021","8022","8023","8024","8025",
@@ -289,8 +290,7 @@ yearly_institutional_grants_df <- charges_assessed %>%
 
 ## AA - Yearly Amount of Other, State, Tribal, or Private Grants Received
 ```{r}
-yearly_private_grants_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430")) %>% 
+yearly_private_grants_df <- charges_assessed_2425 %>% 
   # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
   filter(detailcode %in% c("7025","7554","8028","8546","8828","UHEA",
                            "8802","8265","UCOM","ACG","ACG1","ACG2","SGN2", 
@@ -304,8 +304,7 @@ yearly_private_grants_df <- charges_assessed %>%
 ## AA - Private Loans
 Yearly Amount Student Received in Private Education Loans During Student's Enrollment in the Year
 ```{r}
-yearly_student_loan_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430"))  %>% # Filter for the specific terms
+yearly_student_loan_df <- charges_assessed_2425 %>% 
   filter(catcode == 'F1') %>% # Category code for Financial Aid Loans
   group_by(pidm) %>% 
   summarise(yearly_loans_amount = sum(amount, na.rm = TRUE), .groups = "drop")
@@ -350,6 +349,12 @@ final_AA_file_df <- fvt_ge_cohort_2324_df %>%
     `Private Loans Amount` == 0 ~ "",
     TRUE ~ rescode
 )) %>% 
+  
+mutate(`Residency Tuition Status by State or District` = case_when(
+    rescode == "I" ~ "IS",
+    rescode == "O" ~ "OS",
+    TRUE ~ ""
+  )) %>% 
   mutate(`Allowance for Books, Supplies, and Equipment` = coalesce(yearly_books_amount, 0)) %>% 
   mutate(`Allowance for Housing and Food` = coalesce(yearly_housing_amount, 0)) %>% 
   mutate(`Institutional Grants and Scholarships` = coalesce(yearly_inst_grants_amount, 0)) %>% 
@@ -391,14 +396,15 @@ mutate(`Total Amount Student Received in Private Education Loans During Student'
   mutate(`Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program`, 0)) %>% 
   
   mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program`)) %>%
-  mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program`, 0)) 
+  mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program`, 0)) %>% 
+  select(- rescode)
 ```
 
 
 Combines the final TA and AA datasets into a single dataframe and writes it to a CSV file for further use or reporting. Using readr so NA values are written as empty strings.
 ```{r}
 combined_df <- bind_rows(final_TA_file_df, final_AA_file_df)
-readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20232024.csv")
+readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20242025.csv")
 ```
 
 
