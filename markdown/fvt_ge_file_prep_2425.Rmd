@@ -134,6 +134,7 @@ total_books_supplies_df <- books_split_df %>%
 Filters relevant financial aid categories and computes total grants and scholarships received per student and CIP code.
 ```{r}
 total_grants_scholarships_df <- charges_assessed %>%
+   filter(! detailcode %in% c("8479","8480","8481","8899","8954","8955","8984","8993", "8994","8995","8996","8997")) %>%   # remove CARES funds
   filter(catcode %in% c("FA", "FA1", "FAN", "FAW", "FSW", "FWN", "FWR")) %>%
   inner_join(cip_record_df, by = "pidm") %>%
   filter(

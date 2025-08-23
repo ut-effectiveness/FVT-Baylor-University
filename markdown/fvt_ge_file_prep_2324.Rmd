@@ -27,6 +27,7 @@ period_budget <- utHelpR::get_data_from_sql_file('period_budget.sql')
 aid_year_budget <- utHelpR::get_data_from_sql_file('aid_year_budget.sql')
 financial_aid <- utHelpR::get_data_from_sql_file('financial_aid.sql')
 charges_assessed <- utHelpR::get_data_from_sql_file('charges_assessed.sql')
+charges_assessed_2324 <- utHelpR::get_data_from_sql_file('2324_charges_assessed.sql')
 term_aid_year <- utHelpR::get_data_from_sql_file('term_to_aid_year.sql')
 residency <- utHelpR::get_data_from_sql_file('residency_code.sql')
 ```
@@ -131,6 +132,7 @@ total_books_supplies_df <- books_split_df %>%
 Filters relevant financial aid categories and computes total grants and scholarships received per student and CIP code.
 ```{r}
 total_grants_scholarships_df <- charges_assessed %>%
+  filter(! detailcode %in% c("8479","8480","8481","8899","8954","8955","8984","8993", "8994","8995","8996","8997")) %>%   # remove CARES funds
   filter(catcode %in% c("FA", "FA1", "FAN", "FAW", "FSW", "FWN", "FWR")) %>%
   inner_join(cip_record_df, by = "pidm") %>%
   filter(
@@ -239,8 +241,7 @@ annual_cost_of_attendance_df <- period_budget %>%
 
 ## AA - Yearly Amount of Tuition and Fees Assessed for Award Year
 ```{r}
-yearly_tuition_fees_assessed_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430")) %>% # Terms in aid year 2022-2023
+yearly_tuition_fees_assessed_df <- charges_assessed_2324 %>% 
   filter(catcode %in% c("TUI","TU1","TUD","TUG","TUN","FE1","FE2","FEE")) %>% # Category codes for Tuition and Fees
   group_by(pidm) %>% 
   summarise(yearly_tuition_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
@@ -274,8 +275,7 @@ yearly_housing_food_df <- aid_year_budget %>%
 
 ## AA - Yearly Amount of Institutional Grants & Scholarships Received
 ```{r}
-yearly_institutional_grants_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430")) %>% 
+yearly_institutional_grants_df <- charges_assessed_2324%>% 
   # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
   filter(detailcode %in% c("8003","8008","8012","8013","8014","8015","8016",
                            "8017","8020","8021","8022","8023","8024","8025",
@@ -289,8 +289,7 @@ yearly_institutional_grants_df <- charges_assessed %>%
 
 ## AA - Yearly Amount of Other, State, Tribal, or Private Grants Received
 ```{r}
-yearly_private_grants_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430")) %>% 
+yearly_private_grants_df <- charges_assessed_2324 %>% 
   # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
   filter(detailcode %in% c("7025","7554","8028","8546","8828","UHEA",
                            "8802","8265","UCOM","ACG","ACG1","ACG2","SGN2", 
@@ -304,8 +303,7 @@ yearly_private_grants_df <- charges_assessed %>%
 ## AA - Private Loans
 Yearly Amount Student Received in Private Education Loans During Student's Enrollment in the Year
 ```{r}
-yearly_student_loan_df <- charges_assessed %>% 
-  filter(termid %in% c("202340","202420","202430"))  %>% # Filter for the specific terms
+yearly_student_loan_df <- charges_assessed_2324 %>% 
   filter(catcode == 'F1') %>% # Category code for Financial Aid Loans
   group_by(pidm) %>% 
   summarise(yearly_loans_amount = sum(amount, na.rm = TRUE), .groups = "drop")
