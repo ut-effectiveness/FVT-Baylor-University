@@ -338,16 +338,19 @@ final_AA_file_df <- fvt_ge_cohort_2324_df %>%
            coalesce(total_coa_amount, 0)) %>% 
    mutate(`Tuition and Fees Amount for Award Year being Reported` =
            coalesce(yearly_tuition_amount, 0)) %>% 
-  mutate(`Residency Tuition Status by State or District` = case_when(
-    `Annual Cost of Attendance (COA)` == 0 &
-    `Tuition and Fees Amount for Award Year being Reported` == 0 &
-    `Allowance for Housing and Food` == 0 &
-    `Allowance for Books, Supplies, and Equipment` == 0 &
-    `Institutional Grants and Scholarships` == 0 &
-    `Other State, Tribal, or Private Grants` == 0 &
-    `Private Loans Amount` == 0 ~ "",
-    TRUE ~ rescode
-)) %>% 
+  
+   mutate(`Residency Tuition Status by State or District` = case_when(
+      `Annual Cost of Attendance (COA)` == 0 &
+      `Tuition and Fees Amount for Award Year being Reported` == 0 &
+      `Allowance for Housing and Food` == 0 &
+      `Allowance for Books, Supplies, and Equipment` == 0 &
+      `Institutional Grants and Scholarships` == 0 &
+      `Other State, Tribal, or Private Grants` == 0 &
+      `Private Loans Amount` == 0 ~ "",
+      rescode == "I" ~ "IS",
+      rescode == "O" ~ "OS",
+      TRUE ~ ""
+      )) %>% 
   mutate(`Allowance for Books, Supplies, and Equipment` = coalesce(yearly_books_amount, 0)) %>% 
   mutate(`Allowance for Housing and Food` = coalesce(yearly_housing_amount, 0)) %>% 
   mutate(`Institutional Grants and Scholarships` = coalesce(yearly_inst_grants_amount, 0)) %>% 
@@ -366,14 +369,12 @@ final_AA_file_df <- fvt_ge_cohort_2324_df %>%
       "Y", "N"
     )
   ) %>% 
-  mutate(
-    `Comprehensive Transition and Postsecondary (CTP) Program Indicator` = 
+  mutate(`Comprehensive Transition and Postsecondary (CTP) Program Indicator` = 
       tidyr::replace_na(as.character(`Comprehensive Transition and Postsecondary (CTP) Program Indicator`), "N")) %>% 
     
   mutate(`Approved Prison Education Program Indicator` = 
       tidyr::replace_na(as.character(`Approved Prison Education Program Indicator`), "N")) %>% 
-  mutate(
-    `GE Program Flag` = 
+  mutate(`GE Program Flag` = 
       tidyr::replace_na(as.character(`GE Program Flag`), "N")) %>% 
 
 mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program`)) %>%
@@ -395,7 +396,17 @@ mutate(`Total Amount Student Received in Private Education Loans During Student'
 
 Combines the final TA and AA datasets into a single dataframe and writes it to a CSV file for further use or reporting. Using readr so NA values are written as empty strings.
 ```{r}
-combined_df <- bind_rows(final_TA_file_df, final_AA_file_df)
+combined_df <- bind_rows(final_TA_file_df, final_AA_file_df) %>% 
+  select(-rescode) %>% 
+  mutate(`Student Middle Name` = ifelse(is.na(`Student Middle Name`), "", `Student Middle Name`)) %>% 
+  mutate(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program` = ifelse(is.na(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`),"",`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`)) %>%
+  mutate(`Program Attendance Status Date During Award Year` = ifelse(is.na(`Program Attendance Status Date During Award Year`),"",`Program Attendance Status Date During Award Year`)) %>% 
+  mutate(`Residency Tuition Status by State or District` = ifelse(is.na(`Residency Tuition Status by State or District`),"",`Residency Tuition Status by State or District`)) %>% 
+  mutate(`Date Student Completed or Withdrew From Program` = ifelse(is.na(`Date Student Completed or Withdrew From Program`),"",`Date Student Completed or Withdrew From Program`)) 
+```
+
+
+```{r}
 readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20232024.csv")
 ```
 

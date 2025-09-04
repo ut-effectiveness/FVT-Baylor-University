@@ -12,7 +12,8 @@ WITH ranked_residency AS (
                    CASE residency_in_state_code
                        WHEN 'O' THEN 1
                        WHEN 'I' THEN 2
-                       ELSE 3
+                       WHEN 'G' THEN 3
+                       ELSE 4
                    END
            ) AS rn
     FROM export.student_term_level

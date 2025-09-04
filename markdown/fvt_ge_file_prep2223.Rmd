@@ -227,7 +227,11 @@ mutate(`Annual Cost of Attendance (COA)` = as.numeric(`Annual Cost of Attendance
   mutate(`Other State, Tribal, or Private Grants` = tidyr::replace_na(`Other State, Tribal, or Private Grants`, 0)) %>% 
   
   mutate(`Private Loans Amount` = as.numeric(`Private Loans Amount`)) %>%
-  mutate(`Private Loans Amount` = tidyr::replace_na(`Private Loans Amount`, 0))
+  mutate(`Private Loans Amount` = tidyr::replace_na(`Private Loans Amount`, 0)) %>% 
+  mutate(`Student Middle Name` = ifelse(is.na(`Student Middle Name`), "", `Student Middle Name`)) %>% 
+  mutate(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program` = ifelse(is.na(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`),"",`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`)) %>%
+  mutate(`Program Attendance Status Date During Award Year` = ifelse(is.na(`Program Attendance Status Date During Award Year`),"",`Program Attendance Status Date During Award Year`)) %>% 
+  mutate(`Residency Tuition Status by State or District` = ifelse(is.na(`Residency Tuition Status by State or District`),"",`Residency Tuition Status by State or District`))
 ```
 
 

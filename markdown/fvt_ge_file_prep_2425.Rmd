@@ -404,7 +404,16 @@ mutate(`Total Amount Student Received in Private Education Loans During Student'
 
 Combines the final TA and AA datasets into a single dataframe and writes it to a CSV file for further use or reporting. Using readr so NA values are written as empty strings.
 ```{r}
-combined_df <- bind_rows(final_TA_file_df, final_AA_file_df)
+combined_df <- bind_rows(final_TA_file_df, final_AA_file_df) %>% 
+  select(-rescode) %>% 
+  mutate(`Student Middle Name` = ifelse(is.na(`Student Middle Name`), "", `Student Middle Name`)) %>% 
+  mutate(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program` = ifelse(is.na(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`),"",`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`)) %>%
+  mutate(`Program Attendance Status Date During Award Year` = ifelse(is.na(`Program Attendance Status Date During Award Year`),"",`Program Attendance Status Date During Award Year`)) %>% 
+  mutate(`Residency Tuition Status by State or District` = ifelse(is.na(`Residency Tuition Status by State or District`),"",`Residency Tuition Status by State or District`)) %>% 
+  mutate(`Date Student Completed or Withdrew From Program` = ifelse(is.na(`Date Student Completed or Withdrew From Program`),"",`Date Student Completed or Withdrew From Program`)) 
+```
+
+```{r}
 readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20242025.csv")
 ```
 
