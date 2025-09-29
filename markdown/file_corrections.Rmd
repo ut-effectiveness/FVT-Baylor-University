@@ -1,0 +1,56 @@
+---
+title: "file_corrections"
+author: "Candi Pierce"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loads essential R packages for data manipulation (dplyr), reading files (readxl, readr), string operations (stringr), and custom SQL data access (utHelpR).
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(utHelpR)
+library(readxl)
+library(readr)
+library(stringr)
+```
+
+Reads the FVT-GE cohort CSV file and retrieves multiple datasets from SQL files, including student details, CIP codes, financial aid, and budget data.
+```{r, warning=FALSE, message=FALSE}
+fvt_ge_cohort_2223_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20222023_check.csv")
+fvt_ge_cohort_2324_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20232024_check.csv")
+correction_file_2223_df <- read_xlsx("/Volumes/Share/IE/Secure/FVT-GE/new files/correction_file_2223.xlsx")
+correction_file_2324_df <- read_xlsx("/Volumes/Share/IE/Secure/FVT-GE/new files/correction_file_2324.xlsx")
+```
+
+```{r}
+cohort_2223_df <- fvt_ge_cohort_2223_df %>%
+  left_join(correction_file_2223_df, join_by("College Student ID","CIP Code")) %>% 
+
+mutate(`Invalid Flag` = case_when(`Error Code` == 49 ~ "T",TRUE ~ as.character(`Invalid Flag`))) %>% 
+  select(-c(`Record Type.y`,`Award Year.y`,`Error Code`,`Error Description`)) 
+```
+
+
+```{r}
+write_csv(cohort_2223_df, "/Volumes/Share/IE/Secure/FVT-GE/Corrected Files/003671_20222023.csv")
+```
+
+
+```{r}
+cohort_2324_df <- fvt_ge_cohort_2324_df %>%
+  left_join(correction_file_2324_df, join_by("College Student ID","CIP Code")) %>% 
+
+mutate(`Invalid Flag` = case_when(`Error Code` == 49 ~ "T",TRUE ~ as.character(`Invalid Flag`))) %>% 
+  select(-c(`Program Attendance Status During Award Year.y`,`Record Type.y`,`Error Code`)) 
+```
+
+
+```{r}
+write_csv(cohort_2324_df, "/Volumes/Share/IE/Secure/FVT-GE/Corrected Files/003671_20232024.csv")
+```
+
+

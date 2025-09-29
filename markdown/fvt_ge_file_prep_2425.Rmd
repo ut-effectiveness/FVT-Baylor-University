@@ -29,7 +29,7 @@ period_budget <- utHelpR::get_data_from_sql_file('period_budget.sql')
 aid_year_budget <- utHelpR::get_data_from_sql_file('aid_year_budget.sql')
 financial_aid <- utHelpR::get_data_from_sql_file('financial_aid.sql')
 charges_assessed <- utHelpR::get_data_from_sql_file('charges_assessed.sql')
-charges_assessed_22425 <- utHelpR::get_data_from_sql_file('2425_charges_assessed.sql')
+charges_assessed_2425 <- utHelpR::get_data_from_sql_file('2425_charges_assessed.sql')
 term_aid_year <- utHelpR::get_data_from_sql_file('term_to_aid_year.sql')
 residency <- utHelpR::get_data_from_sql_file('residency_code2425.sql')
 ```
