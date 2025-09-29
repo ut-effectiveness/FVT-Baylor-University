@@ -18,6 +18,8 @@ library(readr)
 library(stringr)
 ```
 
+We received a correction file for the FVT/GE files submitted for 2022–2023 and 2023–2024. This script applies those corrections to the original files.
+
 Reads the FVT-GE cohort CSV file and retrieves multiple datasets from SQL files, including student details, CIP codes, financial aid, and budget data.
 ```{r, warning=FALSE, message=FALSE}
 fvt_ge_cohort_2223_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20222023_check.csv")
@@ -26,6 +28,7 @@ correction_file_2223_df <- read_xlsx("/Volumes/Share/IE/Secure/FVT-GE/new files/
 correction_file_2324_df <- read_xlsx("/Volumes/Share/IE/Secure/FVT-GE/new files/correction_file_2324.xlsx")
 ```
 
+This code merges the 2022–2023 cohort data with a correction file, flags records with error code 49 as invalid, and removes unnecessary columns.
 ```{r}
 cohort_2223_df <- fvt_ge_cohort_2223_df %>%
   left_join(correction_file_2223_df, join_by("College Student ID","CIP Code")) %>% 
@@ -34,12 +37,12 @@ mutate(`Invalid Flag` = case_when(`Error Code` == 49 ~ "T",TRUE ~ as.character(`
   select(-c(`Record Type.y`,`Award Year.y`,`Error Code`,`Error Description`)) 
 ```
 
-
+This code writes the cleaned and corrected 2022–2023 cohort data to a CSV file.
 ```{r}
 write_csv(cohort_2223_df, "/Volumes/Share/IE/Secure/FVT-GE/Corrected Files/003671_20222023.csv")
 ```
 
-
+This code merges the 2023–2024 cohort data with its correction file, flags error code 49 as invalid, and drops specified columns.
 ```{r}
 cohort_2324_df <- fvt_ge_cohort_2324_df %>%
   left_join(correction_file_2324_df, join_by("College Student ID","CIP Code")) %>% 
@@ -48,7 +51,7 @@ mutate(`Invalid Flag` = case_when(`Error Code` == 49 ~ "T",TRUE ~ as.character(`
   select(-c(`Program Attendance Status During Award Year.y`,`Record Type.y`,`Error Code`)) 
 ```
 
-
+This code writes the cleaned and corrected 2023–2024 cohort data to a CSV file.
 ```{r}
 write_csv(cohort_2324_df, "/Volumes/Share/IE/Secure/FVT-GE/Corrected Files/003671_20232024.csv")
 ```
