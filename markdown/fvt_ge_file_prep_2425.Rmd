@@ -185,15 +185,17 @@ mutate(
   ) %>% 
   mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = coalesce(total_grants_amount, 0)) %>% 
   select(!c(total_loans_amount, total_debt_amount, total_tuition_amount, total_books_amount, total_grants_amount)) %>% 
-  mutate(`Invalid Flag` = if_else(
-      `Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` == 0 &
-      `Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` == 0 &
-      `Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` == 0 &
-      `Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` == 0 &
-      `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0,
-      "Y", "N"
-    )
-  ) %>% 
+   mutate(`Invalid Flag` = case_when(
+  `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0 ~ "T",
+  
+  `Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0 ~ "Y",
+  
+  TRUE ~ "N"
+)) %>% 
   mutate(
     `Comprehensive Transition and Postsecondary (CTP) Program Indicator` = 
       tidyr::replace_na(as.character(`Comprehensive Transition and Postsecondary (CTP) Program Indicator`), "N")) %>% 
@@ -371,7 +373,7 @@ mutate(`Residency Tuition Status by State or District` = case_when(
       `Institutional Grants and Scholarships` == 0 &
       `Other State, Tribal, or Private Grants` == 0 &
       `Private Loans Amount` == 0,
-      "Y", "N"
+      "T", "N"
     )
   ) %>% 
   mutate(
