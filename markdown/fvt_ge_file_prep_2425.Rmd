@@ -22,7 +22,7 @@ library(stringr)
 
 Reads the FVT-GE cohort CSV file and retrieves multiple datasets from SQL files, including student details, CIP codes, financial aid, and budget data.
 ```{r, warning=FALSE, message=FALSE}
-fvt_ge_cohort_2425_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/new files/2324Cohort_003671_AY20232024T.csv")
+fvt_ge_cohort_2425_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/Downloaded Files/2025/2425 Generated Cohort File 10.08.2025.csv")
 student_cip <- utHelpR::get_data_from_sql_file('student_cip.sql')
 student_record <- utHelpR::get_data_from_sql_file('student_record.sql')
 period_budget <- utHelpR::get_data_from_sql_file('period_budget.sql')
@@ -33,6 +33,27 @@ charges_assessed_2425 <- utHelpR::get_data_from_sql_file('2425_charges_assessed.
 term_aid_year <- utHelpR::get_data_from_sql_file('term_to_aid_year.sql')
 residency <- utHelpR::get_data_from_sql_file('residency_code2425.sql')
 ```
+
+<!-- Update student ID using SSN -->
+<!-- ```{r} -->
+<!-- student_record_df <- student_record %>% -->
+<!--   select(-pidm, - cipcode) %>%  -->
+<!--   distinct() -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- cohort_2425_df <- fvt_ge_cohort_2425_df %>%  -->
+<!--   mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>% -->
+<!--   select(`College Student ID`, `Student Social Security Number`, `CIP Code`) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- cohort_id_df <- cohort_2425_df %>%  -->
+<!--   left_join(student_record_df, join_by(`Student Social Security Number` == ssn))  -->
+<!-- ``` -->
+
 
 Joins student records with CIP codes and removes unnecessary columns to prepare a dataset linking students to their academic programs.
 ```{r}
@@ -152,7 +173,7 @@ total_grants_scholarships_df <- charges_assessed %>%
 Combines all calculated financial data into a final student-level dataset by CIP code, excluding internal identifiers.
 ```{r}
 cip_student_file_df <- cip_record_df %>% 
-  select(pidm, studentid, cipcode) %>% 
+  select(pidm, studentid, cipcode, ssn) %>% 
   distinct() %>% 
   left_join(total_student_loan_df, by = c("pidm", "studentid", "cipcode")) %>% 
   left_join(total_institutional_debt_df, by = c("pidm", "studentid", "cipcode")) %>%
@@ -166,7 +187,9 @@ This code merges the FVT-GE cohort data with financial and academic metrics for 
 ```{r}
 final_TA_file_df <- fvt_ge_cohort_2425_df %>% 
   filter(`Record Type` == "TA") %>%
-  left_join(cip_student_file_df, by = c("College Student ID" = "studentid", "CIP Code" = "cipcode")) %>% 
+  mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>%
+  mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, side = "right", pad = "0")) %>%
+  left_join(cip_student_file_df, by = c("Student Social Security Number" = "ssn", "CIP Code" = "cipcode")) %>% 
   mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` =
            coalesce(total_loans_amount, 0)) %>% 
    mutate(`Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` =
@@ -186,7 +209,7 @@ mutate(
   mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = coalesce(total_grants_amount, 0)) %>% 
   select(!c(total_loans_amount, total_debt_amount, total_tuition_amount, total_books_amount, total_grants_amount)) %>% 
    mutate(`Invalid Flag` = case_when(
-  `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0 ~ "T",
+  `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0 ~ "Y",
   
   `Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` == 0 &
   `Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` == 0 &
@@ -318,7 +341,7 @@ yearly_student_loan_df <- charges_assessed_2425 %>%
 
 ```{r}
 aa_cip_student_file_df <- cip_record_df %>% 
-  select(pidm, studentid, cipcode) %>% 
+  select(pidm, studentid, cipcode, ssn) %>% 
   distinct() %>% 
   left_join(annual_cost_of_attendance_df, by = "pidm") %>% 
   left_join(yearly_tuition_fees_assessed_df, by = "pidm") %>% 
@@ -335,9 +358,11 @@ aa_cip_student_file_df <- cip_record_df %>%
 This code merges the FVT-GE cohort data with financial and academic metrics for each AA student, calculates totals for loans, debt, tuition, books, and grants, and flags records as invalid if all financial amounts are zero. It also ensures that key fields are numeric and filled with default values where missing, preparing the final dataset for reporting or submission.
 
 ```{r}
-final_AA_file_df <- fvt_ge_cohort_2324_df %>% 
+final_AA_file_df <- fvt_ge_cohort_2425_df %>% 
   filter(`Record Type` == "AA") %>%
-  left_join(aa_cip_student_file_df, by = c("College Student ID" = "studentid", "CIP Code" = "cipcode")) %>% 
+  mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>%
+  mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, side = "right", pad = "0")) %>%
+  left_join(aa_cip_student_file_df, by = c("Student Social Security Number" = "ssn", "CIP Code" = "cipcode")) %>% 
   mutate(`Annual Cost of Attendance (COA)` =
            coalesce(total_coa_amount, 0)) %>% 
    mutate(`Tuition and Fees Amount for Award Year being Reported` =
@@ -373,7 +398,7 @@ mutate(`Residency Tuition Status by State or District` = case_when(
       `Institutional Grants and Scholarships` == 0 &
       `Other State, Tribal, or Private Grants` == 0 &
       `Private Loans Amount` == 0,
-      "T", "N"
+      "Y", "N"
     )
   ) %>% 
   mutate(
@@ -407,7 +432,9 @@ mutate(`Total Amount Student Received in Private Education Loans During Student'
 Combines the final TA and AA datasets into a single dataframe and writes it to a CSV file for further use or reporting. Using readr so NA values are written as empty strings.
 ```{r}
 combined_df <- bind_rows(final_TA_file_df, final_AA_file_df) %>% 
-  select(-rescode) %>% 
+  mutate(`College Student ID` = str_pad(as.character(`College Student ID`), width = 8, pad = "0")) %>% 
+  mutate(`College Student ID` = ifelse(is.na(`College Student ID`), "", `College Student ID`)) %>% 
+  select(- studentid) %>%
   mutate(`Student Middle Name` = ifelse(is.na(`Student Middle Name`), "", `Student Middle Name`)) %>% 
   mutate(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program` = ifelse(is.na(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`),"",`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`)) %>%
   mutate(`Program Attendance Status Date During Award Year` = ifelse(is.na(`Program Attendance Status Date During Award Year`),"",`Program Attendance Status Date During Award Year`)) %>% 
@@ -416,7 +443,7 @@ combined_df <- bind_rows(final_TA_file_df, final_AA_file_df) %>%
 ```
 
 ```{r}
-readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/new files/003671_20242025.csv")
+readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/Downloaded Files/2025/003671_20242025.csv")
 ```
 
 
