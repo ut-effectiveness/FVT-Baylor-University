@@ -188,7 +188,7 @@ This code merges the FVT-GE cohort data with financial and academic metrics for 
 final_TA_file_df <- fvt_ge_cohort_2425_df %>% 
   filter(`Record Type` == "TA") %>%
   mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>%
-  mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, side = "right", pad = "0")) %>%
+  mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, pad = "0")) %>%
   left_join(cip_student_file_df, by = c("Student Social Security Number" = "ssn", "CIP Code" = "cipcode")) %>% 
   mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` =
            coalesce(total_loans_amount, 0)) %>% 
@@ -361,7 +361,7 @@ This code merges the FVT-GE cohort data with financial and academic metrics for 
 final_AA_file_df <- fvt_ge_cohort_2425_df %>% 
   filter(`Record Type` == "AA") %>%
   mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>%
-  mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, side = "right", pad = "0")) %>%
+  mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, pad = "0")) %>%
   left_join(aa_cip_student_file_df, by = c("Student Social Security Number" = "ssn", "CIP Code" = "cipcode")) %>% 
   mutate(`Annual Cost of Attendance (COA)` =
            coalesce(total_coa_amount, 0)) %>% 
