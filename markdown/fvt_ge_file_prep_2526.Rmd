@@ -1,0 +1,452 @@
+---
+title: "fvt_ge_file_prep_2526"
+author: "Candi Pierce"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Loads essential R packages for data manipulation (dplyr), reading files (readxl, readr), string operations (stringr), and custom SQL data access (utHelpR).
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(utHelpR)
+library(readxl)
+library(readr)
+library(stringr)
+```
+##### To Do Update file path with new file
+
+
+Reads the FVT-GE cohort CSV file and retrieves multiple datasets from SQL files, including student details, CIP codes, financial aid, and budget data.
+```{r, warning=FALSE, message=FALSE}
+fvt_ge_cohort_2526_df <- read_csv("/Volumes/Share/IE/Secure/FVT-GE/Downloaded Files/2026/cohort_003671_AY20252026T_20260901.csv")
+student_cip <- utHelpR::get_data_from_sql_file('student_cip.sql')
+student_record <- utHelpR::get_data_from_sql_file('student_record.sql')
+period_budget <- utHelpR::get_data_from_sql_file('period_budget.sql')
+aid_year_budget <- utHelpR::get_data_from_sql_file('aid_year_budget.sql')
+financial_aid <- utHelpR::get_data_from_sql_file('financial_aid.sql')
+charges_assessed <- utHelpR::get_data_from_sql_file('charges_assessed.sql')
+charges_assessed_2526 <- utHelpR::get_data_from_sql_file('2526_charges_assessed.sql')
+term_aid_year <- utHelpR::get_data_from_sql_file('term_to_aid_year.sql')
+residency <- utHelpR::get_data_from_sql_file('residency_code2526.sql')
+```
+
+<!-- Update student ID using SSN -->
+<!-- ```{r} -->
+<!-- student_record_df <- student_record %>% -->
+<!--   select(-pidm, - cipcode) %>%  -->
+<!--   distinct() -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- cohort_2425_df <- fvt_ge_cohort_2425_df %>%  -->
+<!--   mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>% -->
+<!--   select(`College Student ID`, `Student Social Security Number`, `CIP Code`) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- cohort_id_df <- cohort_2425_df %>%  -->
+<!--   left_join(student_record_df, join_by(`Student Social Security Number` == ssn))  -->
+<!-- ``` -->
+
+
+Joins student records with CIP codes and removes unnecessary columns to prepare a dataset linking students to their academic programs.
+```{r}
+cip_record_df <- student_record %>% 
+  left_join(student_cip, join_by(pidm, cipcode == cip_code)) %>% 
+  select(-c(cip_count, cip_sequence))
+```
+
+
+## TA - Private Loans
+Filters financial aid loan charges and calculates total private loan amounts per student and CIP code within their enrollment period.
+```{r}
+total_student_loan_df <- charges_assessed %>%
+  filter(catcode == 'F1') %>%  # Financial Aid Loans
+  inner_join(cip_record_df, by = "pidm") %>%
+  filter(
+    (is.na(derived_last_term_code) & termid >= first_term_code) |
+    (!is.na(derived_last_term_code) & termid >= first_term_code & termid < derived_last_term_code)
+  ) %>%
+  group_by(studentid, pidm, cipcode) %>%
+  summarise(total_loans_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  arrange(studentid, cipcode)
+```
+
+
+## TA - Institutional Debt
+Identifies institutional charges (excluding refunds) and computes total debt per student and CIP code during their enrollment.
+```{r}
+total_institutional_debt_df <- charges_assessed %>%
+  filter(typeind == "C", catcode != 'RFD') %>%
+  inner_join(cip_record_df, by = "pidm") %>%
+  filter(
+    (is.na(derived_last_term_code) & termid >= first_term_code) |
+    (!is.na(derived_last_term_code) & termid >= first_term_code & termid < derived_last_term_code)
+  ) %>%
+  group_by(studentid, pidm, cipcode) %>%
+  summarise(total_debt_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>%
+  filter(total_debt_amount > 0) %>% 
+  arrange(studentid, cipcode)
+```
+
+
+
+## TA - Total Amount of Tuition & Fees  
+Filters tuition and fee charges and summarizes total amounts per student and CIP code for their enrollment duration.
+```{r}
+total_tuition_fees_df <- charges_assessed %>%
+  filter(catcode %in% c("TUI", "TU1", "TUD", "TUG", "TUN", "FE1", "FE2", "FEE")) %>%
+  inner_join(cip_record_df, by = "pidm") %>%
+  filter(
+    (is.na(derived_last_term_code) & termid >= first_term_code) |
+    (!is.na(derived_last_term_code) & termid >= first_term_code & termid < derived_last_term_code)
+  ) %>%
+  group_by(studentid, pidm, cipcode) %>%
+  summarise(total_tuition_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>%
+  filter(total_tuition_amount > 0) %>%
+  arrange(pidm, cipcode)
+```
+
+
+
+## TA - Total Amount of Allowance for Books and Supplies
+Extracts book and supply budget components, aligns them with academic terms, and calculates prorated totals per student and CIP code.
+```{r}
+# Step 1: Filter for Books and Supplies
+books_supplies <- aid_year_budget %>%
+  filter(component == "B+S")
+
+# Step 2: Join with term_aid_year to get termid for each aidyear
+books_with_terms <- books_supplies %>%
+  inner_join(term_aid_year, by = "aidyear")  # term_aid_year has columns: termid, aidyear
+
+# Step 3: Join with cip_record_df by pidm only, then filter by term boundaries
+books_split_df <- books_with_terms %>%
+  inner_join(cip_record_df, by = "pidm") %>%
+  filter(
+    (is.na(derived_last_term_code) & termid >= first_term_code) |
+    (!is.na(derived_last_term_code) & termid >= first_term_code & termid < derived_last_term_code)
+  ) %>%
+  mutate(
+    split_amount = case_when(
+      str_ends(termid, "30") ~ 0,
+      str_ends(termid, "20|40") ~ aidamount / 2,
+      TRUE ~ 0
+    )
+  )
+
+# Step 4: Summarize totals by studentid, pidm, cipcode
+total_books_supplies_df <- books_split_df %>%
+  group_by(studentid, pidm, cipcode) %>%
+  summarise(total_books_amount = sum(split_amount, na.rm = TRUE), .groups = "drop") %>%
+  filter(total_books_amount > 0) %>%
+  arrange(pidm, cipcode)
+```
+
+
+
+## TA - Total Amount of Grants & Scholarships Received
+Filters relevant financial aid categories and computes total grants and scholarships received per student and CIP code.
+```{r}
+total_grants_scholarships_df <- charges_assessed %>%
+   filter(! detailcode %in% c("8479","8480","8481","8899","8954","8955","8984","8993", "8994","8995","8996","8997")) %>%   # remove CARES funds
+  filter(catcode %in% c("FA", "FA1", "FAN", "FAW", "FSW", "FWN", "FWR")) %>%
+  inner_join(cip_record_df, by = "pidm") %>%
+  filter(
+    (is.na(derived_last_term_code) & termid >= first_term_code) |
+    (!is.na(derived_last_term_code) & termid >= first_term_code & termid < derived_last_term_code)
+  ) %>%
+  group_by(studentid, pidm, cipcode) %>%
+  summarise(total_grants_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>%
+  filter(total_grants_amount > 0)%>%
+  arrange(pidm, cipcode)
+```
+
+
+## TA Student file population with term and major
+Combines all calculated financial data into a final student-level dataset by CIP code, excluding internal identifiers.
+```{r}
+cip_student_file_df <- cip_record_df %>% 
+  select(pidm, studentid, cipcode, ssn) %>% 
+  distinct() %>% 
+  left_join(total_student_loan_df, by = c("pidm", "studentid", "cipcode")) %>% 
+  left_join(total_institutional_debt_df, by = c("pidm", "studentid", "cipcode")) %>%
+  left_join(total_books_supplies_df, by = c("pidm", "studentid", "cipcode")) %>%
+  left_join(total_tuition_fees_df, by = c("pidm", "studentid", "cipcode")) %>%
+  left_join(total_grants_scholarships_df, by = c("pidm", "studentid", "cipcode")) %>% 
+  select(-pidm)
+```
+
+This code merges the FVT-GE cohort data with financial and academic metrics for each TA student, calculates totals for loans, debt, tuition, books, and grants, and flags records as invalid if all financial amounts are zero. It also ensures that key fields are numeric and filled with default values where missing, preparing the final dataset for reporting or submission.
+```{r}
+final_TA_file_df <- fvt_ge_cohort_2526_df %>% 
+  filter(`Record Type` == "TA") %>%
+  mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>%
+  mutate(`CIP Code` = str_pad(as.character(as.integer(`CIP Code`)), width = 6, pad = "0")) %>%
+  #mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, pad = "0")) %>%
+  left_join(cip_student_file_df, by = c("Student Social Security Number" = "ssn", "CIP Code" = "cipcode")) %>% 
+  mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` =
+           coalesce(total_loans_amount, 0)) %>% 
+   mutate(`Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` =
+           coalesce(total_debt_amount, 0)) %>% 
+  mutate(`Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` = coalesce(total_tuition_amount, 0)) %>% 
+  
+mutate(
+    `Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` =
+      if_else(
+        `Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` == 0 &
+        `Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` == 0 &
+        `Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` == 0,
+        0,
+        round(coalesce(total_books_amount, 0))
+      )
+  ) %>% 
+  mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = coalesce(total_grants_amount, 0)) %>% 
+  select(!c(total_loans_amount, total_debt_amount, total_tuition_amount, total_books_amount, total_grants_amount)) %>% 
+   mutate(`Invalid Flag` = case_when(
+  `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0 ~ "T",
+  
+  `Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` == 0 &
+  `Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` == 0 ~ "T",
+  
+  TRUE ~ "N"
+)) %>% 
+  mutate(
+    `Comprehensive Transition and Postsecondary (CTP) Program Indicator` = 
+      tidyr::replace_na(as.character(`Comprehensive Transition and Postsecondary (CTP) Program Indicator`), "N")) %>% 
+    
+  mutate(`Approved Prison Education Program Indicator` = 
+      tidyr::replace_na(as.character(`Approved Prison Education Program Indicator`), "N")) %>% 
+  mutate(
+    `GE Program Flag` = 
+      tidyr::replace_na(as.character(`GE Program Flag`), "N")) %>% 
+
+  mutate(`Annual Cost of Attendance (COA)` = as.numeric(`Annual Cost of Attendance (COA)`)) %>%
+  mutate(`Annual Cost of Attendance (COA)` = tidyr::replace_na(`Annual Cost of Attendance (COA)`, 0)) %>% 
+  
+  mutate(`Tuition and Fees Amount for Award Year being Reported` = as.numeric(`Tuition and Fees Amount for Award Year being Reported`)) %>%
+  mutate(`Tuition and Fees Amount for Award Year being Reported` = tidyr::replace_na(`Tuition and Fees Amount for Award Year being Reported`, 0)) %>% 
+  
+  mutate(`Residency Tuition Status by State or District` = as.character(`Residency Tuition Status by State or District`)) %>%
+  mutate(`Residency Tuition Status by State or District` = tidyr::replace_na(`Residency Tuition Status by State or District`, "")) %>% 
+  
+  mutate(`Allowance for Books, Supplies, and Equipment` = as.numeric(`Allowance for Books, Supplies, and Equipment`)) %>%
+  mutate(`Allowance for Books, Supplies, and Equipment` = tidyr::replace_na(`Allowance for Books, Supplies, and Equipment`, 0)) %>% 
+  
+  mutate(`Allowance for Housing and Food` = as.numeric(`Allowance for Housing and Food`)) %>%
+  mutate(`Allowance for Housing and Food` = tidyr::replace_na(`Allowance for Housing and Food`, 0)) %>% 
+  
+  mutate(`Institutional Grants and Scholarships` = as.numeric(`Institutional Grants and Scholarships`)) %>%
+  mutate(`Institutional Grants and Scholarships` = tidyr::replace_na(`Institutional Grants and Scholarships`, 0)) %>% 
+  
+  mutate(`Other State, Tribal, or Private Grants` = as.numeric(`Other State, Tribal, or Private Grants`)) %>%
+  mutate(`Other State, Tribal, or Private Grants` = tidyr::replace_na(`Other State, Tribal, or Private Grants`, 0)) %>% 
+  
+  mutate(`Private Loans Amount` = as.numeric(`Private Loans Amount`)) %>%
+  mutate(`Private Loans Amount` = tidyr::replace_na(`Private Loans Amount`, 0)) 
+```
+
+
+
+## AA - Annual Cost of Attendance 
+```{r}
+annual_cost_of_attendance_df <- period_budget %>% 
+  filter(aidyear == "2526") %>% # Filter for the specific award year
+  group_by(pidm) %>% 
+  summarise(total_coa_amount = sum(periodamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(total_coa_amount > 0)
+```
+
+
+## AA - Yearly Amount of Tuition and Fees Assessed for Award Year
+```{r}
+yearly_tuition_fees_assessed_df <- charges_assessed_2526 %>% 
+  filter(catcode %in% c("TUI","TU1","TUD","TUG","TUN","FE1","FE2","FEE")) %>% # Category codes for Tuition and Fees
+  group_by(pidm) %>% 
+  summarise(yearly_tuition_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(yearly_tuition_amount > 0)
+```
+
+
+
+## AA - Yearly Amount of Allowance for Books and Supplies
+```{r}
+yearly_books_supplies_df <- aid_year_budget %>% 
+  filter(aidyear == "2526") %>% # Filter for the specific award year
+  filter(component == "B+S") %>%  # Filter on Allowance for Books and Supplies
+  group_by(pidm) %>% 
+  summarise(yearly_books_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(yearly_books_amount > 0)
+```
+
+
+## AA - Yearly Amount of Allowance for Housing and Food
+```{r}
+yearly_housing_food_df <- aid_year_budget %>% 
+  filter(aidyear == "2526") %>% # Filter for the specific award year
+  filter(component == "R+B") %>%  # Filter on Allowance for Housing & Food
+  group_by(pidm) %>% 
+  summarise(yearly_housing_amount = sum(aidamount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(yearly_housing_amount > 0)
+```
+
+
+
+## AA - Yearly Amount of Institutional Grants & Scholarships Received
+```{r}
+yearly_institutional_grants_df <- charges_assessed_2526 %>% 
+  # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
+  filter(detailcode %in% c("8003","8008","8012","8013","8014","8015","8016",
+                           "8017","8020","8021","8022","8023","8024","8025",
+                           "8026","8036","8037","8058","8061","8118","8119",
+                           "8220","8381","8405","8429","8537","8559")) %>% 
+  group_by(pidm) %>% 
+  summarise(yearly_inst_grants_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(yearly_inst_grants_amount > 0)
+```
+
+
+## AA - Yearly Amount of Other, State, Tribal, or Private Grants Received
+```{r}
+yearly_private_grants_df <- charges_assessed_2526 %>% 
+  # Per the budget office institutional fund codes 161010, 180010, 120100 with acct code 760110
+  filter(detailcode %in% c("7025","7554","8028","8546","8828","UHEA",
+                           "8802","8265","UCOM","ACG","ACG1","ACG2","SGN2", 
+                           "SGN3","SGNT")) %>% 
+  group_by(pidm) %>% 
+  summarise(yearly_prv_grants_amount = sum(amount, na.rm = TRUE), .groups = "drop") %>% 
+  filter(yearly_prv_grants_amount > 0)
+```
+
+
+## AA - Private Loans
+Yearly Amount Student Received in Private Education Loans During Student's Enrollment in the Year
+```{r}
+yearly_student_loan_df <- charges_assessed_2526 %>% 
+  filter(catcode == 'F1') %>% # Category code for Financial Aid Loans
+  group_by(pidm) %>% 
+  summarise(yearly_loans_amount = sum(amount, na.rm = TRUE), .groups = "drop")
+```
+
+
+
+
+```{r}
+aa_cip_student_file_df <- cip_record_df %>% 
+  select(pidm, studentid, cipcode, ssn) %>% 
+  distinct() %>% 
+  left_join(annual_cost_of_attendance_df, by = "pidm") %>% 
+  left_join(yearly_tuition_fees_assessed_df, by = "pidm") %>% 
+  left_join(yearly_books_supplies_df, by = "pidm") %>% 
+  left_join(yearly_housing_food_df, by = "pidm") %>% 
+  left_join(yearly_institutional_grants_df, by = "pidm") %>% 
+  left_join(yearly_private_grants_df, by = "pidm") %>%
+  left_join(yearly_student_loan_df, by = "pidm") %>%
+  left_join(residency, by = "pidm") %>%
+  select(! c(pidm, student_id))
+```
+
+
+This code merges the FVT-GE cohort data with financial and academic metrics for each AA student, calculates totals for loans, debt, tuition, books, and grants, and flags records as invalid if all financial amounts are zero. It also ensures that key fields are numeric and filled with default values where missing, preparing the final dataset for reporting or submission.
+
+```{r}
+final_AA_file_df <- fvt_ge_cohort_2526_df %>% 
+  filter(`Record Type` == "AA") %>%
+  mutate(`Student Social Security Number` = str_pad(as.character(`Student Social Security Number`), width = 9, pad = "0")) %>%
+  mutate(`CIP Code` = str_pad(as.character(as.integer(`CIP Code`)), width = 6, pad = "0")) %>% 
+  # mutate(`CIP Code` = str_pad(as.character(`CIP Code`), width = 6, pad = "0")) %>%
+  left_join(aa_cip_student_file_df, by = c("Student Social Security Number" = "ssn", "CIP Code" = "cipcode")) %>% 
+  mutate(`Annual Cost of Attendance (COA)` =
+           coalesce(total_coa_amount, 0)) %>% 
+   mutate(`Tuition and Fees Amount for Award Year being Reported` =
+           coalesce(yearly_tuition_amount, 0)) %>% 
+  mutate(`Residency Tuition Status by State or District` = case_when(
+    `Annual Cost of Attendance (COA)` == 0 &
+    `Tuition and Fees Amount for Award Year being Reported` == 0 &
+    `Allowance for Housing and Food` == 0 &
+    `Allowance for Books, Supplies, and Equipment` == 0 &
+    `Institutional Grants and Scholarships` == 0 &
+    `Other State, Tribal, or Private Grants` == 0 &
+    `Private Loans Amount` == 0 ~ "",
+    TRUE ~ rescode
+)) %>% 
+  
+mutate(`Residency Tuition Status by State or District` = case_when(
+    rescode == "I" ~ "IS",
+    rescode == "O" ~ "OS",
+    TRUE ~ ""
+  )) %>% 
+  mutate(`Allowance for Books, Supplies, and Equipment` = coalesce(yearly_books_amount, 0)) %>% 
+  mutate(`Allowance for Housing and Food` = coalesce(yearly_housing_amount, 0)) %>% 
+  mutate(`Institutional Grants and Scholarships` = coalesce(yearly_inst_grants_amount, 0)) %>% 
+  mutate(`Other State, Tribal, or Private Grants` = coalesce(yearly_prv_grants_amount, 0)) %>% 
+  mutate(`Private Loans Amount` = coalesce(yearly_loans_amount, 0)) %>% 
+    
+ select(!c(total_coa_amount, yearly_tuition_amount, yearly_inst_grants_amount, yearly_prv_grants_amount, yearly_books_amount, yearly_housing_amount, yearly_loans_amount)) %>% 
+  mutate(`Invalid Flag` = if_else(
+      `Annual Cost of Attendance (COA)` == 0 &
+      `Tuition and Fees Amount for Award Year being Reported` == 0 &
+      `Allowance for Housing and Food` == 0 &
+      `Allowance for Books, Supplies, and Equipment` == 0 &
+      `Institutional Grants and Scholarships` == 0 &
+      `Other State, Tribal, or Private Grants` == 0 &
+      `Private Loans Amount` == 0,
+      "T", "N"
+    )
+  ) %>% 
+  mutate(
+    `Comprehensive Transition and Postsecondary (CTP) Program Indicator` = 
+      tidyr::replace_na(as.character(`Comprehensive Transition and Postsecondary (CTP) Program Indicator`), "N")) %>% 
+    
+  mutate(`Approved Prison Education Program Indicator` = 
+      tidyr::replace_na(as.character(`Approved Prison Education Program Indicator`), "N")) %>% 
+  mutate(
+    `GE Program Flag` = 
+      tidyr::replace_na(as.character(`GE Program Flag`), "N")) %>% 
+
+mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program`)) %>%
+  mutate(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount Student Received in Private Education Loans During Student's Entire Enrollment in the Program`, 0)) %>% 
+  
+  mutate(`Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount of Institutional Debt During Student's Entire Enrollment in the Program`)) %>%
+  mutate(`Total Amount of Institutional Debt During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Institutional Debt During Student's Entire Enrollment in the Program`, 0)) %>% 
+  
+  mutate(`Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program`)) %>%
+  mutate(`Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Tuition & Fees Assessed During Student's Entire Enrollment in the Program`, 0)) %>% 
+  
+  mutate(`Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program`)) %>%
+  mutate(`Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Allowance for books, supplies, and equipment included in the student's title IV, HEA COA During Student's Entire Enrollment in the Program`, 0)) %>% 
+  
+  mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = as.numeric(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program`)) %>%
+  mutate(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program` = tidyr::replace_na(`Total Amount of Grants and Scholarships the student received During Student's Entire Enrollment in the Program`, 0)) %>% 
+  select(- rescode)
+```
+
+
+Combines the final TA and AA datasets into a single dataframe and writes it to a CSV file for further use or reporting. Using readr so NA values are written as empty strings.
+```{r}
+combined_df <- bind_rows(final_TA_file_df, final_AA_file_df) %>% 
+  mutate(`College Student ID` = str_pad(as.character(`College Student ID`), width = 8, pad = "0")) %>% 
+  mutate(`College Student ID` = ifelse(is.na(`College Student ID`), "", `College Student ID`)) %>% 
+  select(- studentid) %>%
+  mutate(`Student Middle Name` = ifelse(is.na(`Student Middle Name`), "", `Student Middle Name`)) %>% 
+  mutate(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program` = ifelse(is.na(`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`),"",`Student's Enrollment Status as of the 1st Day of Enrollment in the Program`)) %>%
+  mutate(`Program Attendance Status Date During Award Year` = ifelse(is.na(`Program Attendance Status Date During Award Year`),"",`Program Attendance Status Date During Award Year`)) %>% 
+  mutate(`Residency Tuition Status by State or District` = ifelse(is.na(`Residency Tuition Status by State or District`),"",`Residency Tuition Status by State or District`)) %>% 
+  mutate(`Date Student Completed or Withdrew From Program` = ifelse(is.na(`Date Student Completed or Withdrew From Program`),"",`Date Student Completed or Withdrew From Program`)) 
+```
+
+
+
+```{r}
+readr::write_csv(combined_df, "/Volumes/Share/IE/Secure/FVT-GE/Downloaded Files/2026/003671_20252026.csv")
+```
