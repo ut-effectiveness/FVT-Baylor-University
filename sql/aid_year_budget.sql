@@ -1,6 +1,6 @@
--- aid_year_budget
+-- aid_year_budget - removed distinct per Marcie 9/30/26
 
-SELECT DISTINCT rbrapbc_pidm Pidm
+SELECT rbrapbc_pidm Pidm
        , rbrapbc_pbcp_code Component
        , CAST(CAST(rbrapbc_amt AS NUMERIC) AS INTEGER) AidAmount
        , rbrapbc_aidy_code AidYear
