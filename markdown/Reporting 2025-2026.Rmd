@@ -1,0 +1,222 @@
+---
+title: "2025-2026 Reporting"
+author: "Candi Pierce"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# FVT/GE Reporting Timeline Summary (Aug–Oct 2026)
+
+## August 16, 2026
+
+- Candi requested a meeting with Julie and Marcie to begin planning FVT/GE reporting work for August and September.
+- Marcie responded that she was unlikely to be available until September due to workload and indicated she was not needed for the portions due October 1.
+
+---
+
+## September 18, 2026
+
+- Candi completed the initial FVT/GE file and placed it in the secure FVT-GE folder for validation.
+- She noted that the reporting methodology followed the prior year's process and requested review and feedback before submission.
+
+---
+
+## September 24, 2026
+
+- Julie and Marcie identified an error in the FVT/GE file, specifically in the **Private Education Loans** column (Column Q).
+- Initial review suggested the issue might only affect the TA group, but later Marcie confirmed it affected both groups.
+- Discussion centered around:
+  - Which loan detail codes should be included as private loans.
+  - Whether Direct Subsidized Loans should be included.
+  - Identifying a sample student for troubleshooting.
+- Candi began investigating the issue immediately.
+
+---
+
+## September 25, 2026
+
+### Discovery of Reporting Methodology Issues
+
+#### Private Loans
+
+- Marcie clarified that only detail codes **ALTM** and **ALTP** should be reported as private loans.
+- Existing reporting was based on category code **F1**, which was capturing additional loan activity.
+
+#### Grants and Scholarships
+
+- Review revealed that federal aid was being included in the Grants & Scholarships calculation.
+- Marcie confirmed that federal financial aid should not be reported in the Grants & Scholarships section.
+- CARES and HEERF funding also needed to be excluded.
+
+#### Institutional Debt
+
+- Marcie reviewed updated Department of Education FAQ guidance and concluded that institutional debt had been reported incorrectly.
+- The correct methodology required:
+  - Reporting debt owed after withdrawal/completion.
+  - Including outstanding balances after Title IV adjustments.
+  - Excluding Perkins Loans and certain federal aid obligations.
+- Marcie believed prior years would also require correction.
+
+#### Cost of Attendance Components
+
+- Concerns were raised that:
+  - Books and supplies.
+  - Housing and food allowances.
+  - Aid-year budget components.
+
+  Were only being captured for a single term rather than the student's full enrollment period.
+
+#### SQL Review
+
+- Marcie requested the SQL used to generate the reports.
+- Candi provided all extraction logic used for:
+  - Private loans.
+  - Institutional debt.
+  - Tuition and fees.
+  - Grants and scholarships.
+  - Books, supplies, housing, and food budgets.
+
+### End-of-Day Status
+
+- Candi committed to reworking the reporting logic over the weekend.
+- She noted that greater lead time would have been beneficial, stating she wished work had begun in August.
+
+---
+
+## September 28, 2026
+
+- Candi verified that CARES and HEERF funds were excluded from:
+- Title IV calculations.
+- Grants and Scholarships calculations.
+- Marcie confirmed this treatment was correct because the funding originated from federal sources.
+
+---
+
+## September 29, 2026
+
+### Report Revision Work
+
+- Marcie confirmed that federal grants should be removed from Grants & Scholarships reporting unless specifically designated for inclusion.
+- Due to an approaching deadline, Marcie requested a status update.
+
+### Candi's Response
+
+- Candi explained she had been in interviews earlier that day and resumed work immediately afterward.
+- She committed to completing the revised file before the end of the day.
+
+### Updated File Delivered
+
+- Candi generated and delivered an updated report:
+- `updated_003671_20252026.csv`
+
+### Additional Review Questions
+
+- Candi requested clarification regarding:
+- Remaining issues in AA records.
+- Whether Cost of Attendance should be reduced by Title IV aid.
+ 
+---
+
+## September 30, 2026
+
+### Cost of Attendance Error Found
+
+- Marcie identified another issue:
+- The use of `DISTINCT` in the annual cost of attendance query prevented some spring budget records from being included.
+- This caused students to have incomplete budgets.
+
+### Additional Budgeting Errors
+
+- Books, supplies, housing, and food calculations were similarly only returning one semester for some students.
+
+### Corrected File
+
+- Candi produced:
+- `updated2_003671_20252026.csv`
+- Marcie validated the updated annual cost of attendance calculations and confirmed they were now correct.
+
+### Final Validation
+
+- Marcie reviewed remaining AA records and reported no additional significant issues.
+
+### Newly Reportable Programs
+
+- Marcie provided a file containing students from newly reportable programs.
+- Candi created:
+- `newly_reportable_programs_003671_20252026.csv`
+- Marcie uploaded the file successfully.
+
+### Student-Level Reporting Submission
+
+- Marcie confirmed:
+- Student-level reports were successfully submitted to NSLDS.
+- Candi acknowledged completion of that milestone.
+
+---
+
+## October 1, 2026
+
+### Student-Level Error Resolution
+
+- Marcie worked student-level report (SLR) errors directly within NSLDS.
+- She estimated approximately 14 errors required correction.
+- She stated:
+- The fixes were relatively straightforward.
+- Research would take the most time.
+
+### Program-Level Report (PLR) Concerns
+
+- Marcie emphasized that the Program-Level Report needed rapid submission due to NSLDS processing times (approximately 7-10 hours).
+- There was uncertainty about whether the PLR had been submitted.
+
+### Resource Coordination
+
+- Candi asked whether Bethany could assist with NSLDS error corrections.
+- Marcie responded that Bethany lacked sufficient background knowledge and that she would handle SLR corrections herself.
+
+### Program-Level Submission
+
+- Julie stated she would submit the PLR.
+- Later, Marcie reported:
+- All student-level report errors had been resolved.
+- She believed the Program-Level Report had not yet been submitted and still contained errors.
+
+### Final Resolution
+
+- Marcie ultimately submitted the report and cleared the remaining errors using the same approach used in the prior year.
+- Candi later responded that she had been occupied with another issue but was glad the errors had been resolved.
+
+---
+
+## Additional Issue (October 1, 2026)
+
+### Student SSN Validation Error
+
+- Marcie identified an NSLDS Error Code 26 involving a student whose Social Security Number appeared to belong to another individual.
+- She confirmed with NSLDS that:
+- The student did not receive federal financial aid.
+- The student therefore did not need to be included in FVT/GE reporting.
+- Julie initiated follow-up to obtain the student's correct SSN.
+
+---
+
+# Key Findings from the Review
+
+1. Private loans were initially overstated because reporting included all F1 loan activity instead of only ALTM and ALTP detail codes.
+
+2. Federal aid was incorrectly included in Grants & Scholarships calculations.
+
+3. Institutional debt methodology required significant revision based on updated federal guidance.
+
+4. Cost of attendance, housing, food, books, and supplies calculations were incomplete due to query logic and DISTINCT usage.
+
+5. Multiple revised files were generated and validated between September 29 and September 30.
+
+6. Student-level reporting was successfully corrected and submitted to NSLDS.
+
+7. Program-level reporting was submitted close to the deadline after additional error resolution.
+
+8. The compressed timeline significantly increased pressure on review, testing, validation, and corrections immediately before the October 1 reporting deadline.
